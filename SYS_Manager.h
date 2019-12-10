@@ -6,6 +6,21 @@
 #include "RM_Manager.h"
 #include "str.h"
 
+struct sysTables{
+    char tablename[21];      //存放表名
+	int attrcount;           //表中属性的数量
+};
+
+struct sysColumns{
+    char tablename[21];  //表名       
+	char attrname[21];   //属性名      
+	AttrType attrtype;    //属性类型
+	int attrlength;      //属性长度
+	int attroffeset;     //属性在记录中的偏移量
+	char ix_flag;        //该属性列上是否存在索引的标识,1表示存在，0表示不存在
+	char indexname[21];   //索引名称
+};
+
 void ExecuteAndMessage(char * ,CEditArea*);
 bool CanButtonClick();
 

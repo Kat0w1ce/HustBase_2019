@@ -3,6 +3,11 @@
 #include "SYS_Manager.h"
 #include "QU_Manager.h"
 #include <iostream>
+#include <vector>
+#include <fstream>
+#include "HustBaseDoc.h"
+
+std::vector<RM_FileHandle *> vecHandle;
 
 void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
@@ -127,19 +132,72 @@ RC execute(char * sql){
 }
 
 RC CreateDB(char *dbpath,char *dbname){
-	return SUCCESS;
+	char *createPath = (char *)malloc(100);
+	memset(createPath, 0, 100);
+	strcat(createPath, dbpath);
+	strcat(createPath, "\\");
+	strcat(createPath, dbname);
+	if (CreateDirectory(createPath, NULL))
+	{
+		SetCurrentDirectory(createPath);
+		if (RM_CreateFile("SYSTABLES", 25) == SUCCESS &&
+			RM_CreateFile("SYSCOLUMNS", 76) == SUCCESS)
+		{
+			free(createPath);
+			return SUCCESS;
+		}
+	}
+	free(createPath);
+	return SQL_SYNTAX;
 }
 
 RC DropDB(char *dbname){
-	return SUCCESS;
+	
+	CFileFind tempFind;
+	char *dropPath = (char *)malloc(300);
+	memset(dropPath, 0, 300);
+	strcat(dropPath, dbname);
+	strcat(dropPath, "\\*.*");
+	BOOL isFind = tempFind.FindFile(dropPath);
+	if (isFind)
+	{
+		memset(dropPath, 0, 300);
+		isFind = tempFind.FindNextFile();
+		if ((!tempFind.IsDots()) && (!tempFind.IsDirectory()))
+		{
+			strcat(dropPath, dbname);
+			strcat(dropPath, "\\");
+			strcat(dropPath, tempFind.GetFileName().GetBuffer(200));
+			DeleteFile(dropPath);
+		}
+	}
+	tempFind.Close();
+	free(dropPath);
+	if (RemoveDirectory(dbname))
+	{
+		return SUCCESS;
+	}
+	return SQL_SYNTAX;
 }
 
 RC OpenDB(char *dbname){
-	return SUCCESS;
+	if (SetCurrentDirectory(dbname))
+	{
+		return SUCCESS;
+	}
+	return SQL_SYNTAX;
 }
 
 
 RC CloseDB(){
+	for (std::vector<RM_FileHandle *>::size_type i = 0; i < vecHandle.size(); i++)
+	{
+		if (vecHandle[i] != NULL)
+		{
+			RM_CloseFile(vecHandle[i]);
+		}
+	}
+	vecHandle.clear();
 	return SUCCESS;
 }
 
