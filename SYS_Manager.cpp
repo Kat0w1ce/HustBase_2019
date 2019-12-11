@@ -326,9 +326,126 @@ RC DropTable(char *relName)
 	return SUCCESS;
 }
 
+//该函数在关系relName的属性attrName上创建名为indexName的索引。
+//函数首先检查在标记属性上是否已经存在一个索引，如果存在，则返回一个非零的错误码。
+//否则，创建该索引。创建索引的工作包括：
+//①创建并打开索引文件；②逐个扫描被索引的记录，并向索引文件中插入索引项；③关闭索引。
 RC CreateIndex(char *indexName, char *relName, char *attrName)
 {
+	RC tempRc;
+	RM_FileHandle *columnHandle = NULL;
+	RM_FileScan *tempFileScan = NULL;
+	RM_Record *columnRec = NULL;
 
+	columnHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	columnHandle->bOpen = false;
+	tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	tempFileScan->bOpen = false;
+
+	tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+	if (tempRc != SUCCESS)
+		return tempRc;
+	/*
+	typedef struct
+	{
+		int bLhsIsAttr, bRhsIsAttr;	//条件的左、右分别是属性（1）还是值（0）
+		AttrType attrType;			//该条件中数据的类型
+		int LattrLength, RattrLength;//若是属性的话，表示属性的长度
+		int LattrOffset, RattrOffset;	//若是属性的话，表示属性的偏移量
+		CompOp compOp;			//比较操作符
+		void *Lvalue, *Rvalue;		//若是值的话，指向对应的值
+	}Con;
+	*/
+
+	//build conditions
+	Con *tempCon = NULL;
+	tempCon = (Con*)malloc(sizeof(Con) * 2);
+	(*tempCon).attrType = chars;
+	(*tempCon).compOp = EQual;
+	(*tempCon).bLhsIsAttr = 1;
+	(*tempCon).LattrLength = 21;
+	(*tempCon).LattrOffset = 0;
+	(*tempCon).bRhsIsAttr = 0;
+	(*tempCon).Rvalue = relName;
+
+	(tempCon+1)->attrType = chars;
+	(tempCon+1)->compOp = EQual;
+	(tempCon+1)->bLhsIsAttr = 1;
+	(tempCon+1)->LattrLength = 21;
+	(tempCon+1)->LattrOffset =21;
+	(tempCon+1)->bRhsIsAttr = 0;
+	(tempCon+1)->Rvalue = attrName;
+
+	OpenScan(tempFileScan, columnHandle, 2, tempCon);
+	columnRec = (RM_Record*)malloc(sizeof(RM_Record));
+	tempRc = GetNextRec(tempFileScan, columnRec);
+	if (tempRc != SUCCESS)return tempRc;
+	if (*(columnRec->pData + 42 + 3 * sizeof(int)) != '0')
+	{
+		return FAIL;
+	}
+
+	*(columnRec->pData + 42 + 3 * sizeof(int)) = '1';
+	memset(columnRec->pData + 42 + 3 * sizeof(int) + sizeof(char), '\0', 21);
+	memcpy(columnRec->pData + 42 + 3 * sizeof(int) + sizeof(char), indexName,strlen(indexName));
+	UpdateRec(columnHandle, columnRec);
+
+	RM_CloseFile(columnHandle); free(columnHandle);
+	CloseScan(tempFileScan); free(tempFileScan);
+	free(tempCon);
+
+	AttrType *tempAttrType = NULL;
+	tempAttrType = (AttrType*)malloc(sizeof(AttrType));
+	memcpy(tempAttrType, columnRec->pData + 42, sizeof(int));
+
+	int length;
+	memcpy(&length, columnRec->pData + 42 + sizeof(int), sizeof(int));
+	CreateIndex(indexName, *tempAttrType, length);
+	free(tempAttrType);
+	//open index file
+	IX_IndexHandle *tempIndexHandle = NULL;
+	tempIndexHandle = (IX_IndexHandle*)malloc(sizeof(IX_IndexHandle));
+	tempIndexHandle->bOpen = false;
+	OpenIndex(indexName, tempIndexHandle);
+	//insert index to file
+	RM_FileHandle *recFileHandle = NULL;
+	RM_FileScan *recFileScan = NULL;
+	RM_Record *rec = NULL;
+	recFileHandle = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
+	recFileScan = (RM_FileScan *)malloc(sizeof(RM_FileScan));
+	rec = (RM_Record *)malloc(sizeof(RM_Record));
+	recFileHandle->bOpen = false;
+	recFileScan->bOpen = false;
+	rec->bValid = false;
+
+	RM_OpenFile(relName, recFileHandle);
+	OpenScan(recFileScan, recFileHandle, 0, NULL);
+
+	int attrOffset, attrLength;
+	memcpy(&attrLength, columnRec->pData + 42 + sizeof(int), sizeof(int));
+	memcpy(&attrOffset, columnRec->pData + 42 + 2 * sizeof(int), sizeof(int));
+	free(columnRec);
+
+	char *attrValue = NULL;
+	attrValue = (char*)malloc(sizeof(char)*attrLength);
+
+	//insert record to index file
+	while (GetNextRec(recFileScan,rec)==SUCCESS)
+	{
+		memcpy(attrValue, rec->pData + attrOffset, attrLength);
+		InsertEntry(tempIndexHandle, attrValue, &rec->rid);
+	}
+
+	CloseScan(recFileScan);
+	RM_CloseFile(recFileHandle);
+	CloseIndex(tempIndexHandle);
+
+	free(tempIndexHandle);
+	free(recFileHandle);
+	free(recFileScan);
+	free(attrValue);
+
+	return SUCCESS;
 }
 
 bool CanButtonClick(){//需要重新实现
