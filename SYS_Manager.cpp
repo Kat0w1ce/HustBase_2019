@@ -7,8 +7,6 @@
 #include <fstream>
 #include "HustBaseDoc.h"
 
-std::vector<RM_FileHandle *> vecHandle;
-
 void ExecuteAndMessage(char * sql,CEditArea* editArea){//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
 	if(s_sql.find("select") == 0){
@@ -140,44 +138,53 @@ RC CreateDB(char *dbpath,char *dbname){
 	if (CreateDirectory(createPath, NULL))
 	{
 		SetCurrentDirectory(createPath);
-		if (RM_CreateFile("SYSTABLES", 25) == SUCCESS &&
-			RM_CreateFile("SYSCOLUMNS", 76) == SUCCESS)
+		RC tempRc;
+		tempRc = RM_CreateFile("SYSTABLES", 25);
+		if (tempRc != SUCCESS)
 		{
 			free(createPath);
-			return SUCCESS;
+			return tempRc;
+		}
+		tempRc = RM_CreateFile("SYSCOLUMNS", 76);//使用记录文件
+		if (tempRc != SUCCESS)
+		{
+			free(createPath);
+			return tempRc;
 		}
 	}
 	free(createPath);
-	return SQL_SYNTAX;
+	return SUCCESS;
+}
+
+void myDeleteFile(CString dir_path)
+{  //delete file recursively
+	CFileFind tempFind;
+	CString path;
+	path.Format("%s/*.*", dir_path);
+	BOOL bWorking = tempFind.FindFile(path);
+	while (bWorking)
+	{
+		bWorking = tempFind.FindNextFile();
+		if (tempFind.IsDirectory() && !tempFind.IsDots()) 
+		{
+			myDeleteFile(tempFind.GetFilePath());
+			RemoveDirectory(tempFind.GetFilePath());
+		}
+		else 
+		{
+			DeleteFile(tempFind.GetFilePath());
+		}
+	}
+
 }
 
 RC DropDB(char *dbname){
-	
-	CFileFind tempFind;
-	char *dropPath = (char *)malloc(300);
-	memset(dropPath, 0, 300);
-	strcat(dropPath, dbname);
-	strcat(dropPath, "\\*.*");
-	BOOL isFind = tempFind.FindFile(dropPath);
-	if (isFind)
-	{
-		memset(dropPath, 0, 300);
-		isFind = tempFind.FindNextFile();
-		if ((!tempFind.IsDots()) && (!tempFind.IsDirectory()))
-		{
-			strcat(dropPath, dbname);
-			strcat(dropPath, "\\");
-			strcat(dropPath, tempFind.GetFileName().GetBuffer(200));
-			DeleteFile(dropPath);
-		}
-	}
-	tempFind.Close();
-	free(dropPath);
+	myDeleteFile(dbname);
 	if (RemoveDirectory(dbname))
 	{
-		return SUCCESS;
+		AfxMessageBox("Success Delete Database!");
 	}
-	return SQL_SYNTAX;
+	return SUCCESS;
 }
 
 RC OpenDB(char *dbname){
@@ -190,15 +197,138 @@ RC OpenDB(char *dbname){
 
 
 RC CloseDB(){
-	for (std::vector<RM_FileHandle *>::size_type i = 0; i < vecHandle.size(); i++)
+	return SUCCESS;
+}
+
+//创建一个名为relName的表。参数attrCount表示关系中属性的数量（取值为1到MAXATTRS之间）。
+//参数attributes是一个长度为attrCount的数组。对于新关系中第i个属性，
+//attributes数组中的第i个元素包含名称、类型和属性的长度（见AttrInfo结构定义）。
+RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
+{
+	RC tempRc;
+	RM_FileHandle *columnHandle=NULL, *tableHandle=NULL;
+	RID *tempRid=NULL;
+	int recordSize = 0;
+	//open systables and syscolumns
+	tempRid = (RID *)malloc(sizeof(RID));
+	columnHandle = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
+	tableHandle = (RM_FileHandle *)malloc(sizeof(RM_FileHandle));
+	tempRid->bValid = false;
+	columnHandle->bOpen = false;
+	tableHandle->bOpen = false;
+
+	tempRc = RM_OpenFile("SYSTABLES", tableHandle);
+	if (tempRc != SUCCESS)
+		return tempRc;
+	tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+	if (tempRc != SUCCESS)
+		return tempRc;
+	//insert to systables and syscolumns
+	char *pData = (char *)malloc(sizeof(sysTables));
+	memcpy(pData, relName, 21);
+	memcpy(pData + 21, &attrCount, sizeof(int));
+	tempRc = InsertRec(tableHandle, pData, tempRid);
+	if (tempRc != SUCCESS)
+		return tempRc;
+	tempRc = RM_CloseFile(tableHandle);
+	if (tempRc != SUCCESS)
+		return tempRc;
+	free(tableHandle); 
+	free(tempRid);
+	free(pData);
+	
+	for (int i = 0, offset = 0; i < attrCount; i++)
 	{
-		if (vecHandle[i] != NULL)
+		pData = (char *)malloc(sizeof(sysColumns));
+		memcpy(pData, relName, 21);
+		memcpy(pData + 21, (attributes + i)->attrName, 21);
+		memcpy(pData + 21 + 21, &((attributes + i)->attrType), sizeof(int));
+		memcpy(pData + 42 + sizeof(int), &((attributes + i)->attrLength), sizeof(int));
+		memcpy(pData + 42 + 2 * sizeof(int), &offset, sizeof(int));
+		memcpy(pData + 42 + 3 * sizeof(int), "0", sizeof(char));
+		tempRid = (RID*)malloc(sizeof(RID)); tempRid->bValid = false;
+		tempRc = InsertRec(columnHandle, pData, tempRid);
+		if (tempRc != SUCCESS)return tempRc;
+		free(pData); free(tempRid);
+		offset += (attributes + i)->attrLength;
+	}
+	tempRc = RM_CloseFile(columnHandle);
+	if (tempRc != SUCCESS) return tempRc;
+	free(columnHandle);
+
+	for (int i = 0; i < attrCount; i++)
+	{
+		recordSize += (attributes + i)->attrLength;
+	}
+	tempRc = RM_CreateFile(relName, recordSize);
+	if (tempRc != SUCCESS)return tempRc;
+	return SUCCESS;
+}
+
+//销毁名为relName的表以及在该表上建立的所有索引。
+RC DropTable(char *relName)
+{
+	RC tempRc;
+	CFile tempFile;
+	RM_FileHandle *columnHandle = NULL, *tableHandle = NULL;
+	RM_FileScan *tempFileScan = NULL;
+	RM_Record *tableRec = NULL, *columnRec = NULL;
+
+	tableHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	columnHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	tableHandle->bOpen = false;
+	columnHandle->bOpen = false;
+	tableRec = (RM_Record*)malloc(sizeof(RM_Record));
+	columnRec = (RM_Record*)malloc(sizeof(RM_Record));
+	tableRec->bValid = false;
+	columnRec->bValid = false;
+
+	tempRc = RM_OpenFile("SYSTABLES", tableHandle);
+	if (tempRc != SUCCESS) return tempRc;
+	tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+	if (tempRc != SUCCESS)return tempRc;
+
+	tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	tempFileScan->bOpen = false;
+	tempRc = OpenScan(tempFileScan, tableHandle, 0, NULL);
+	if (tempRc != SUCCESS)return tempRc;
+	//use getnextrec to find record
+	while (GetNextRec(tempFileScan, tableRec) == SUCCESS)
+	{
+		if (!strcmp(relName, tableRec->pData))
 		{
-			RM_CloseFile(vecHandle[i]);
+			DeleteRec(tableHandle, &(tableRec->rid));
+			break;
 		}
 	}
-	vecHandle.clear();
+	CloseScan(tempFileScan);
+	tempFileScan->bOpen = false;
+	tempRc = OpenScan(tempFileScan, columnHandle, 0, NULL);
+	if (tempRc != SUCCESS)return tempRc;
+	while (GetNextRec(tempFileScan, columnRec) == SUCCESS)
+	{
+		if (!strcmp(relName, columnRec->pData))
+		{
+			DeleteRec(columnHandle, &(columnRec->rid));
+		}
+	}
+	CloseScan(tempFileScan);
+	free(tempFileScan);
+	tempRc = RM_CloseFile(tableHandle);
+	if (tempRc != SUCCESS)return tempRc;
+	tempRc = RM_CloseFile(columnHandle);
+	if (tempRc != SUCCESS)return tempRc;
+	free(tableHandle);
+	free(columnHandle);
+	free(tableRec);
+	free(columnRec);
+	DeleteFile((LPCTSTR)relName);
 	return SUCCESS;
+}
+
+RC CreateIndex(char *indexName, char *relName, char *attrName)
+{
+
 }
 
 bool CanButtonClick(){//需要重新实现

@@ -1,1 +1,26 @@
-﻿  HustBase.vcxproj -> C:\Users\Srz\Desktop\HustBase_2019\Debug\HustBase.exe
+﻿  SYS_Manager.cpp
+c:\users\srz\desktop\hustbase_2019\SYS_Manager.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+SYS_Manager.cpp(135): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(89): note: 参见“strcat”的声明
+SYS_Manager.cpp(136): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(89): note: 参见“strcat”的声明
+SYS_Manager.cpp(137): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(89): note: 参见“strcat”的声明
+SYS_Manager.cpp(271): warning C4101: “tempRc”: 未引用的局部变量
+c:\users\srz\desktop\hustbase_2019\sys_manager.cpp(130): warning C4715: “execute”: 不是所有的控件路径都返回值
+  yacc_sql.tab.c
+yacc_sql.tab.c(363): warning C4273: “malloc”: dll 链接不一致
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\corecrt_malloc.h(97): note: 参见“malloc”的前一个定义
+yacc_sql.tab.c(370): warning C4273: “free”: dll 链接不一致
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\corecrt_malloc.h(85): note: 参见“free”的前一个定义
+yacc_sql.y(165): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(132): note: 参见“strcpy”的声明
+yacc_sql.y(172): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(132): note: 参见“strcpy”的声明
+yacc_sql.y(237): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\stdio.h(1772): note: 参见“sprintf”的声明
+  parse.c
+parse.c(85): warning C4013: “yy_switch_to_buffer”未定义；假设外部返回 int
+parse.c(85): warning C4013: “yy_scan_string”未定义；假设外部返回 int
+  正在生成代码...
+  HustBase.vcxproj -> C:\Users\Srz\Desktop\HustBase_2019\Debug\HustBase.exe
