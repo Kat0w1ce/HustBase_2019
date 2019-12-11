@@ -447,6 +447,63 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 
 	return SUCCESS;
 }
+//该函数用来删除名为indexName的索引。
+//函数首先检查索引是否存在，如果不存在，则返回一个非零的错误码。
+//否则，销毁该索引。
+RC DropIndex(char *indexName)
+{
+	IX_IndexHandle *tempIndexHandle = NULL;
+	RC tempRc;
+
+	//judge the existence of index
+	tempIndexHandle = (IX_IndexHandle*)malloc(sizeof(IX_IndexHandle));
+	tempIndexHandle->bOpen = false;
+	tempRc = OpenIndex(indexName, tempIndexHandle);
+	if (tempRc != SUCCESS)return tempRc;
+	CloseIndex(tempIndexHandle); free(tempIndexHandle);
+
+	//delete index from table
+	RM_FileHandle *columnHandle = NULL;
+	RM_FileScan *tempFileScan = NULL;
+	RM_Record *columnRec = NULL;
+
+	columnHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	columnHandle->bOpen = false;
+	tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	tempFileScan->bOpen = false;
+
+	tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+	if (tempRc != SUCCESS) return tempRc;
+	//build conditions
+	Con *tempCon = NULL;
+	tempCon = (Con*)malloc(sizeof(Con));
+	(*tempCon).attrType = chars;
+	(*tempCon).compOp = EQual;
+	(*tempCon).bLhsIsAttr = 1;
+	(*tempCon).LattrLength = strlen(indexName) + 1;
+	(*tempCon).LattrOffset = 42 + 3 * sizeof(int) + sizeof(char);
+	(*tempCon).bRhsIsAttr = 0;
+	(*tempCon).Rvalue = indexName;
+
+	OpenScan(tempFileScan, columnHandle, 1, tempCon);
+	columnRec = (RM_Record*)malloc(sizeof(RM_Record));
+	tempRc = GetNextRec(tempFileScan, columnRec);
+
+	if (tempRc == SUCCESS)
+	{
+		*(columnRec->pData + 42 + 3 * sizeof(int)) = '0';
+		memset(columnRec->pData + 42 + 3 * sizeof(int) + sizeof(char), '\0', 21);
+		UpdateRec(columnHandle, columnRec);
+	}
+
+	CloseScan(tempFileScan); free(tempFileScan);
+	RM_CloseFile(columnHandle); free(columnHandle);
+	free(tempCon);
+
+	DeleteFile((LPCTSTR)indexName);
+
+	return SUCCESS;
+}
 
 bool CanButtonClick(){//需要重新实现
 	//如果当前有数据库已经打开
