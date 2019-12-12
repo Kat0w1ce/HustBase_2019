@@ -8,6 +8,11 @@ RC OpenScan(RM_FileScan *rmFileScan,RM_FileHandle *fileHandle,int conNum,Con *co
 	return SUCCESS;
 }
 
+RC CloseScan(RM_FileScan *rmFileScan)
+{
+	return SUCCESS;
+}
+
 RC GetNextRec(RM_FileScan *rmFileScan,RM_Record *rec)
 {
 	return SUCCESS;
