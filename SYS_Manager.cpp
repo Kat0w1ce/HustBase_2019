@@ -583,10 +583,60 @@ RC Insert(char *relName, int nValues, Value * values)
 			{
 				int attrLength;
 				if (!strcmp(relName, columnRec->pData))
-				{
-
+				{  //将对应table信息复制
+					i++;
+					memcpy(&attrLength, columnRec->pData + 46, sizeof(int));
+					recordSize += attrLength;
+					memcpy(tmp->tablename, columnRec->pData, 21);
+					memcpy(tmp->attrname, columnRec->pData + 21, 21);
+					memcpy(&(tmp->attrtype), columnRec->pData + 42, sizeof(int));
+					memcpy(&(tmp->attrlength), columnRec->pData + 42 + sizeof(int), sizeof(int));
+					memcpy(&(tmp->attroffeset), columnRec->pData + 42 + 2 * sizeof(int), sizeof(int));
+					++tmp;
 				}
+				if (i == nValues)
+					break;
 			}
+			tmp = column;
+			CloseScan(tempFileScan);
+			free(tempFileScan);
+			dataHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+			dataHandle->bOpen = false;
+
+			tempRc = RM_OpenFile(relName, dataHandle);
+			if (tempRc != SUCCESS)
+			{
+				AfxMessageBox("Open Data Tables File Fail!");
+				return tempRc;
+			}
+			char *pData = (char*)malloc(sizeof(recordSize));
+			for (int i = 0; i < nValues; i++)
+			{
+				Value *localValue = values + nValues - i - 1;
+				AttrType atype = localValue->type;
+				if (atype != (tmp + i)->attrtype)
+				{
+					AfxMessageBox("Insert Syntax Error!");
+					return SQL_SYNTAX;
+				}
+				memcpy(pData + (tmp + i)->attroffeset, localValue->data, (tmp + i)->attrlength);
+			}
+			tempRid = (RID*)malloc(sizeof(RID));
+			tempRid->bValid = false;
+			InsertRec(dataHandle, pData, tempRid);//insert data			
+
+			tempRc = RM_CloseFile(tableHandle); 
+			if (tempRc != SUCCESS)
+				return tempRc;		
+			tempRc = RM_CloseFile(dataHandle); 
+			if (tempRc != SUCCESS)
+				return tempRc;
+
+			free(tempRid); 
+			free(tableRec); 
+			free(columnRec);
+			free(dataHandle);
+			free(tableHandle);
 		}
 		else
 		{
