@@ -505,6 +505,103 @@ RC DropIndex(char *indexName)
 	return SUCCESS;
 }
 
+//该函数用来在relName表中插入具有指定属性值的新元组，nValues为属性值个数，values为对应的属性值数组。
+//函数根据给定的属性值构建元组，调用记录管理模块的函数插入该元组，
+//然后在该表的每个索引中为该元组创建合适的索引项。
+RC Insert(char *relName, int nValues, Value * values)
+{
+	RC tempRc;
+	RID *tempRid;
+	RM_FileScan *tempFileScan;
+	RM_Record *tableRec, *columnRec;
+	RM_FileHandle *tableHandle, *columnHandle, *dataHandle;
+	char *tableName = relName;
+	
+	Con *tempCon = (Con *)malloc(sizeof(Con));
+	tempCon->bLhsIsAttr = 1;
+	tempCon->bRhsIsAttr = 0;
+	tempCon->attrType = chars;
+	tempCon->LattrLength = 21;
+	tempCon->LattrOffset = 0;
+	tempCon->RattrOffset = 0;
+	tempCon->RattrLength = 0;
+	tempCon->compOp = EQual;
+	tempCon->Rvalue = (void*)tableName;
+
+	tableHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	tableRec = (RM_Record*)malloc(sizeof(RM_Record));
+	tableHandle->bOpen = false;
+	tableRec->bValid = false;
+
+	tempRc = RM_OpenFile("SYSTABLES", tableHandle);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Open System TablesFile Fail!");
+		return tempRc;
+	}
+	tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	tempFileScan->bOpen = false;
+	tempRc = OpenScan(tempFileScan, tableHandle, 1, tempCon);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Scan System TablesFile Fail!");
+		return tempRc;
+	}
+	tempRc = GetNextRec(tempFileScan, tableRec);
+	if (tempRc == SUCCESS)
+	{
+		int attrCount;
+		memcpy(&attrCount, tableRec->pData + 21, sizeof(int));
+		CloseScan(tempFileScan); free(tempFileScan);
+		if (attrCount == nValues)
+		{
+			int recordSize = 0;
+			sysColumns *tmp, *column;
+			columnHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+			columnHandle->bOpen = false;
+			tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+			if (tempRc != SUCCESS)
+			{
+				AfxMessageBox("Open System ColumnsFile Fail!");
+				return tempRc;
+			}
+			tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+			tempFileScan->bOpen = false;
+			tempRc = OpenScan(tempFileScan, columnHandle, 0, NULL);
+			if (tempRc != SUCCESS)
+			{
+				AfxMessageBox("Scan System ColumnsFile Fail!");
+				return tempRc;
+			}
+			columnRec = (RM_Record*)malloc(sizeof(RM_Record));
+			columnRec->bValid = false;
+			
+			int i = 0;
+			column = (sysColumns*)malloc(sizeof(sysColumns));
+			tmp = column;
+			while (GetNextRec(tempFileScan, columnRec) == SUCCESS)
+			{
+				int attrLength;
+				if (!strcmp(relName, columnRec->pData))
+				{
+
+				}
+			}
+		}
+		else
+		{
+			AfxMessageBox("属性个数不相同，插入失败!");
+			return tempRc;
+		}
+	}
+	else
+	{
+		AfxMessageBox("Target Tables Is Not Exsit!");
+		return tempRc;
+	}
+	return SUCCESS;
+}
+
 bool CanButtonClick(){//需要重新实现
 	//如果当前有数据库已经打开
 	return true;
