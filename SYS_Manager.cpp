@@ -825,6 +825,197 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	return SUCCESS;
 }
 
+
+//该函数用于更新relName表中所有满足指定条件的元组，在每一个更新的元组中将属性attrName的值设置为一个新的值。
+//如果没有指定条件，则此方法更新relName中所有元组。
+//如果要更新一个被索引的属性，应当先删除每个被更新元组对应的索引条目，然后插入一个新的索引条目。
+RC Update(char *relName, char *attrName, Value *value, int nConditions, Condition *conditions)
+{
+	RC tempRc;
+	RM_FileHandle *tableHandle, *columnHandle, *dataHandle;
+	RM_FileScan *tempFileScan;
+	RM_Record *tableRec, *columnRec, *dataRec;
+
+	Con *tempCon = (Con*)malloc(sizeof(Con));
+	tempCon->attrType = chars;
+	tempCon->bLhsIsAttr = 1;
+	tempCon->bRhsIsAttr = 0;
+	tempCon->LattrLength = 21;
+	tempCon->LattrOffset = 0;
+	tempCon->RattrLength = 0;
+	tempCon->RattrOffset = 0;
+	tempCon->compOp = EQual;
+	tempCon->Rvalue = (void*)relName;
+	
+	tableHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	tableHandle->bOpen = false;
+	tempRc = RM_OpenFile("SYSTABLES", tableHandle);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Open Table File Fail!");
+		return tempRc;
+	}
+	tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	tempFileScan->bOpen = false;
+	tempRc = OpenScan(tempFileScan, tableHandle, 1, tempCon);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Open File Scan Fail!");
+		return tempRc;
+	}
+	tableRec = (RM_Record*)malloc(sizeof(RM_Record));
+	tableRec->bValid = false;
+	tempRc = GetNextRec(tempFileScan, tableRec);
+	int nAttrCount;
+	if (tempRc == SUCCESS)
+	{
+		memcpy(&nAttrCount, tableRec->pData + 21, sizeof(int));
+		CloseScan(tempFileScan);
+		free(tempFileScan);
+
+		columnHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+		columnHandle->bOpen = false;
+		tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+		if (tempRc != SUCCESS)
+		{
+			AfxMessageBox("Open Column File Fail!");
+			return tempRc;
+		}
+		tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+		columnRec = (RM_Record*)malloc(sizeof(RM_Record));
+
+		tempCon = (Con*)realloc(tempCon, sizeof(Con) * 2);
+		tempCon->attrType = chars;
+		tempCon->bLhsIsAttr = 1;
+		tempCon->bRhsIsAttr = 0;
+		tempCon->LattrLength = 21;
+		tempCon->LattrOffset = 21;
+		tempCon->RattrLength = 0;
+		tempCon->RattrOffset = 0;
+		tempCon->compOp = EQual;
+		tempCon->Rvalue = (void*)attrName;
+
+		tempRc = OpenScan(tempFileScan, columnHandle, 2, tempCon);
+		if (tempRc != SUCCESS)
+		{
+			AfxMessageBox("Open File Scan Fail!");
+			return tempRc;
+		}
+		tempRc = GetNextRec(tempFileScan, columnRec);
+		if (tempRc == SUCCESS)
+		{
+			AttrType tempAttrType;
+			memcpy(&tempAttrType, columnRec->pData + 42, sizeof(AttrType));
+			int attrLength, attrOffset;
+			memcpy(&attrLength, columnRec->pData + 46, sizeof(int));
+			memcpy(&attrOffset, columnRec->pData + 50, sizeof(int));
+			CloseScan(tempFileScan);
+
+			Con *tempCons = (Con *)malloc(sizeof(Con)*nConditions);
+			for (int i = 0; i < nConditions; i++)
+			{
+				if (conditions[i].bLhsIsAttr == 0 &&
+					conditions[i].bRhsIsAttr == 1)
+				{
+					(tempCon + 1)->Rvalue = conditions[i].rhsAttr.attrName;
+				}
+				else if (conditions[i].bLhsIsAttr == 1 &&
+					conditions[i].bRhsIsAttr == 0)
+				{
+					(tempCon + 1)->Rvalue = conditions[i].lhsAttr.attrName;
+				}
+				else
+				{
+
+				}
+
+				OpenScan(tempFileScan, columnHandle, 2, tempCon);
+				tempRc = GetNextRec(tempFileScan, columnRec);
+				if (tempRc != SUCCESS)return tempRc;
+				tempCons[i].bLhsIsAttr = conditions[i].bLhsIsAttr;
+				tempCons[i].bRhsIsAttr = conditions[i].bRhsIsAttr;
+				tempCons[i].compOp = conditions[i].op;
+				if (conditions[i].bLhsIsAttr == 1)
+				{        //left
+					memcpy(&tempCons[i].LattrLength, columnRec->pData + 46, sizeof(int));
+					memcpy(&tempCons[i].LattrOffset, columnRec->pData + 50, sizeof(int));
+				}
+				else
+				{
+					tempCons[i].attrType = conditions[i].lhsValue.type;
+					tempCons[i].Lvalue = conditions[i].lhsValue.data;
+				}
+
+				if (conditions[i].bRhsIsAttr == 1)
+				{       //right
+					memcpy(&tempCons[i].RattrLength, columnRec->pData + 46, sizeof(int));
+					memcpy(&tempCons[i].RattrOffset, columnRec->pData + 50, sizeof(int));
+				}
+				else
+				{
+					tempCons[i].attrType = conditions[i].rhsValue.type;
+					tempCons[i].Rvalue = conditions[i].rhsValue.data;
+				}
+				CloseScan(tempFileScan);
+			}
+			free(tempFileScan);
+
+			dataHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+			dataHandle->bOpen = false;
+			dataRec = (RM_Record*)malloc(sizeof(RM_Record));
+			dataRec->bValid = false;
+			tempRc = RM_OpenFile(relName, dataHandle);
+			if (tempRc != SUCCESS)
+			{
+				AfxMessageBox("Open Data File Fail!");
+				return tempRc;
+			}
+			tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+			tempRc = OpenScan(tempFileScan, dataHandle, nConditions, tempCons);
+			if (tempRc != SUCCESS)
+			{
+				AfxMessageBox("Open Data File Scan Fail!");
+				return tempRc;
+			}
+			while (GetNextRec(tempFileScan,dataRec)==SUCCESS)
+			{
+				memcpy(dataRec->pData + attrOffset, value->data, attrLength);
+				UpdateRec(tempFileScan->pRMFileHandle, dataRec);
+			}
+			CloseScan(tempFileScan);
+			free(tempFileScan);
+			free(tempCons);
+		}
+		else
+		{
+			AfxMessageBox("That Table Do Not Exsit This Property!");
+			return tempRc;
+		}
+		RM_CloseFile(tableHandle);
+		RM_CloseFile(dataHandle);
+		RM_CloseFile(columnHandle);
+		free(tableHandle);
+		free(columnHandle);
+		free(dataHandle);
+		free(tempCon);
+		free(tableRec);
+		free(columnRec);
+		free(dataRec);
+		return SUCCESS;
+	}
+	else
+	{
+		AfxMessageBox("That Table Do Not Exsit!");
+		RM_CloseFile(tableHandle);
+		CloseScan(tempFileScan);
+		free(tableHandle);
+		free(tempFileScan);
+		free(tableRec);
+		return tempRc;
+	}
+	return SUCCESS;
+}
+
 bool CanButtonClick(){//需要重新实现
 	//如果当前有数据库已经打开
 	return true;
