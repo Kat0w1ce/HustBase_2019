@@ -197,6 +197,7 @@ RC OpenDB(char *dbname){
 
 
 RC CloseDB(){
+
 	return SUCCESS;
 }
 
@@ -206,8 +207,8 @@ RC CloseDB(){
 RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 {
 	RC tempRc;
-	RM_FileHandle *columnHandle=NULL, *tableHandle=NULL;
-	RID *tempRid=NULL;
+	RM_FileHandle *columnHandle = NULL, *tableHandle = NULL;
+	RID *tempRid = NULL;
 	int recordSize = 0;
 	//open systables and syscolumns
 	tempRid = (RID *)malloc(sizeof(RID));
@@ -233,10 +234,10 @@ RC CreateTable(char *relName, int attrCount, AttrInfo *attributes)
 	tempRc = RM_CloseFile(tableHandle);
 	if (tempRc != SUCCESS)
 		return tempRc;
-	free(tableHandle); 
+	free(tableHandle);
 	free(tempRid);
 	free(pData);
-	
+
 	for (int i = 0, offset = 0; i < attrCount; i++)
 	{
 		pData = (char *)malloc(sizeof(sysColumns));
@@ -326,6 +327,7 @@ RC DropTable(char *relName)
 	return SUCCESS;
 }
 
+
 //该函数在关系relName的属性attrName上创建名为indexName的索引。
 //函数首先检查在标记属性上是否已经存在一个索引，如果存在，则返回一个非零的错误码。
 //否则，创建该索引。创建索引的工作包括：
@@ -348,12 +350,12 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	/*
 	typedef struct
 	{
-		int bLhsIsAttr, bRhsIsAttr;	//条件的左、右分别是属性（1）还是值（0）
-		AttrType attrType;			//该条件中数据的类型
-		int LattrLength, RattrLength;//若是属性的话，表示属性的长度
-		int LattrOffset, RattrOffset;	//若是属性的话，表示属性的偏移量
-		CompOp compOp;			//比较操作符
-		void *Lvalue, *Rvalue;		//若是值的话，指向对应的值
+	int bLhsIsAttr, bRhsIsAttr;	//条件的左、右分别是属性（1）还是值（0）
+	AttrType attrType;			//该条件中数据的类型
+	int LattrLength, RattrLength;//若是属性的话，表示属性的长度
+	int LattrOffset, RattrOffset;	//若是属性的话，表示属性的偏移量
+	CompOp compOp;			//比较操作符
+	void *Lvalue, *Rvalue;		//若是值的话，指向对应的值
 	}Con;
 	*/
 
@@ -368,13 +370,13 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	(*tempCon).bRhsIsAttr = 0;
 	(*tempCon).Rvalue = relName;
 
-	(tempCon+1)->attrType = chars;
-	(tempCon+1)->compOp = EQual;
-	(tempCon+1)->bLhsIsAttr = 1;
-	(tempCon+1)->LattrLength = 21;
-	(tempCon+1)->LattrOffset =21;
-	(tempCon+1)->bRhsIsAttr = 0;
-	(tempCon+1)->Rvalue = attrName;
+	(tempCon + 1)->attrType = chars;
+	(tempCon + 1)->compOp = EQual;
+	(tempCon + 1)->bLhsIsAttr = 1;
+	(tempCon + 1)->LattrLength = 21;
+	(tempCon + 1)->LattrOffset = 21;
+	(tempCon + 1)->bRhsIsAttr = 0;
+	(tempCon + 1)->Rvalue = attrName;
 
 	OpenScan(tempFileScan, columnHandle, 2, tempCon);
 	columnRec = (RM_Record*)malloc(sizeof(RM_Record));
@@ -387,7 +389,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 
 	*(columnRec->pData + 42 + 3 * sizeof(int)) = '1';
 	memset(columnRec->pData + 42 + 3 * sizeof(int) + sizeof(char), '\0', 21);
-	memcpy(columnRec->pData + 42 + 3 * sizeof(int) + sizeof(char), indexName,strlen(indexName));
+	memcpy(columnRec->pData + 42 + 3 * sizeof(int) + sizeof(char), indexName, strlen(indexName));
 	UpdateRec(columnHandle, columnRec);
 
 	RM_CloseFile(columnHandle); free(columnHandle);
@@ -430,7 +432,7 @@ RC CreateIndex(char *indexName, char *relName, char *attrName)
 	attrValue = (char*)malloc(sizeof(char)*attrLength);
 
 	//insert record to index file
-	while (GetNextRec(recFileScan,rec)==SUCCESS)
+	while (GetNextRec(recFileScan, rec) == SUCCESS)
 	{
 		memcpy(attrValue, rec->pData + attrOffset, attrLength);
 		InsertEntry(tempIndexHandle, attrValue, &rec->rid);
@@ -516,7 +518,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	RM_Record *tableRec, *columnRec;
 	RM_FileHandle *tableHandle, *columnHandle, *dataHandle;
 	char *tableName = relName;
-	
+
 	Con *tempCon = (Con *)malloc(sizeof(Con));
 	tempCon->bLhsIsAttr = 1;
 	tempCon->bRhsIsAttr = 0;
@@ -575,7 +577,7 @@ RC Insert(char *relName, int nValues, Value * values)
 			}
 			columnRec = (RM_Record*)malloc(sizeof(RM_Record));
 			columnRec->bValid = false;
-			
+
 			int i = 0;
 			column = (sysColumns*)malloc(sizeof(sysColumns));
 			tmp = column;
@@ -625,15 +627,15 @@ RC Insert(char *relName, int nValues, Value * values)
 			tempRid->bValid = false;
 			InsertRec(dataHandle, pData, tempRid);//insert data			
 
-			tempRc = RM_CloseFile(tableHandle); 
+			tempRc = RM_CloseFile(tableHandle);
 			if (tempRc != SUCCESS)
-				return tempRc;		
-			tempRc = RM_CloseFile(dataHandle); 
+				return tempRc;
+			tempRc = RM_CloseFile(dataHandle);
 			if (tempRc != SUCCESS)
 				return tempRc;
 
-			free(tempRid); 
-			free(tableRec); 
+			free(tempRid);
+			free(tableRec);
 			free(columnRec);
 			free(dataHandle);
 			free(tableHandle);
@@ -658,7 +660,169 @@ RC Insert(char *relName, int nValues, Value * values)
 RC Delete(char *relName, int nConditions, Condition *conditions)
 {
 	RC tempRc;
+	RM_FileHandle *tableHandle, *columnHandle, *dataHandle;
+	RM_FileScan *tempFileScan;
+	RM_Record *tableRec, *columnRec, *dataRec;
 
+	Con *tempCon = (Con*)malloc(sizeof(Con));
+	tempCon->Rvalue = (void*)relName;
+	tempCon->bLhsIsAttr = 1;
+	tempCon->bRhsIsAttr = 0;
+	tempCon->attrType = chars;
+	tempCon->compOp = EQual;
+	tempCon->LattrLength = 21;
+	tempCon->RattrLength = 0;
+	tempCon->RattrOffset = 0;
+	tempCon->LattrOffset = 0;
+
+	tableHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	tableHandle->bOpen = false;
+	tempRc = RM_OpenFile("SYSTABLES", tableHandle);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Open Tables File Fail!");
+		return tempRc;
+	}
+	tableRec = (RM_Record*)malloc(sizeof(RM_Record));
+	tableRec->bValid = false;
+	tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	tempFileScan->bOpen = false;
+	tempRc = OpenScan(tempFileScan, tableHandle, 1, NULL);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Open File Scan Fail!");
+		return tempRc;
+	}
+	tempRc = GetNextRec(tempFileScan, tableRec);
+	int nAttrCount;
+	if (tempRc == SUCCESS)
+	{
+		memcpy(&nAttrCount, tableRec->pData + 21, sizeof(int));
+		CloseScan(tempFileScan);
+		free(tempFileScan);
+
+		columnHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+		columnHandle->bOpen = false;
+		tempRc = RM_OpenFile("SYSCOLUMNS", columnHandle);
+		if (tempRc != SUCCESS)
+		{
+			AfxMessageBox("Open Column File Fail!");
+			return tempRc;
+		}
+		tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+		tempFileScan->bOpen = false;
+		columnRec = (RM_Record*)malloc(sizeof(RM_Record));
+		columnRec->bValid = false;
+
+		tempCon = (Con*)realloc(tempCon, sizeof(Con) * 2);
+		(tempCon + 1)->bLhsIsAttr = 1;
+		(tempCon + 1)->bRhsIsAttr = 0;
+		(tempCon + 1)->attrType = chars;
+		(tempCon + 1)->compOp = EQual;
+		(tempCon + 1)->LattrLength = 21;
+		(tempCon + 1)->RattrLength = 0;
+		(tempCon + 1)->RattrOffset = 0;
+		(tempCon + 1)->LattrOffset = 21;
+
+		Con *tempCons = (Con *)malloc(nConditions * sizeof(Con));
+		for (int i = 0; i < nConditions; i++)
+		{
+			if (conditions[i].bLhsIsAttr == 0 &&
+				conditions[i].bRhsIsAttr == 1)
+			{
+				(tempCon + 1)->Rvalue = conditions[i].rhsAttr.attrName;
+			}
+			else if (conditions[i].bLhsIsAttr == 1 &&
+				conditions[i].bRhsIsAttr == 0)
+			{
+				(tempCon + 1)->Rvalue = conditions[i].lhsAttr.attrName;
+			}
+			else
+			{
+
+			}
+
+			OpenScan(tempFileScan, columnHandle, 2, tempCon);
+			tempRc = GetNextRec(tempFileScan, columnRec);
+			if (tempRc != SUCCESS)return tempRc;
+			tempCons[i].bLhsIsAttr = conditions[i].bLhsIsAttr;
+			tempCons[i].bRhsIsAttr = conditions[i].bRhsIsAttr;
+			tempCons[i].compOp = conditions[i].op;
+			if (conditions[i].bLhsIsAttr == 1)
+			{        //left
+				memcpy(&tempCons[i].LattrLength, columnRec->pData + 46, sizeof(int));
+				memcpy(&tempCons[i].LattrOffset, columnRec->pData + 50, sizeof(int));
+			}
+			else
+			{
+				tempCons[i].attrType = conditions[i].lhsValue.type;
+				tempCons[i].Lvalue = conditions[i].lhsValue.data;
+			}
+
+			if (conditions[i].bRhsIsAttr == 1)
+			{       //right
+				memcpy(&tempCons[i].RattrLength, columnRec->pData + 46, sizeof(int));
+				memcpy(&tempCons[i].RattrOffset, columnRec->pData + 50, sizeof(int));
+			}
+			else
+			{
+				tempCons[i].attrType = conditions[i].rhsValue.type;
+				tempCons[i].Rvalue = conditions[i].rhsValue.data;
+			}
+			CloseScan(tempFileScan);
+		}
+		free(tempFileScan);
+
+		//Open Data File
+		dataHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+		dataHandle->bOpen = false;
+		dataRec = (RM_Record*)malloc(sizeof(RM_Record));
+		dataRec->bValid = false;
+		tempRc = RM_OpenFile(relName, dataHandle);
+		if (tempRc != SUCCESS)
+		{
+			AfxMessageBox("Open Data Table File Fail!");
+			return tempRc;
+		}
+		tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+		tempRc=OpenScan(tempFileScan, dataHandle, nConditions, tempCons);
+		if (tempRc != SUCCESS)
+		{
+			AfxMessageBox("Open Data File Scan Fail!");
+			return tempRc;
+		}
+		while (GetNextRec(tempFileScan,dataRec)==SUCCESS)
+		{
+			DeleteRec(dataHandle, &dataRec->rid);
+		}
+
+		CloseScan(tempFileScan);
+		free(tempFileScan);
+		free(tempCons);
+
+		RM_CloseFile(dataHandle);
+		RM_CloseFile(tableHandle);
+		RM_CloseFile(columnHandle);
+		free(dataHandle);
+		free(columnHandle);
+		free(tableHandle);
+		free(dataRec);
+		free(tableRec);
+		free(columnRec);
+		free(tempCon);
+		return SUCCESS;
+	}
+	else
+	{
+		AfxMessageBox("That Table Do Not Exsit!");
+		RM_CloseFile(tableHandle);
+		free(tableHandle);
+		CloseScan(tempFileScan);
+		free(tempFileScan);
+		free(tableRec);
+		return tempRc;
+	}
+	return SUCCESS;
 }
 
 bool CanButtonClick(){//需要重新实现
