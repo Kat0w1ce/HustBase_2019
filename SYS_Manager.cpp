@@ -652,6 +652,15 @@ RC Insert(char *relName, int nValues, Value * values)
 	return SUCCESS;
 }
 
+//该函数用来删除relName表中所有满足指定条件的元组以及该元组对应的索引项。
+//如果没有指定条件，则此方法删除relName关系中所有元组。
+//如果包含多个条件，则这些条件之间为与关系。
+RC Delete(char *relName, int nConditions, Condition *conditions)
+{
+	RC tempRc;
+
+}
+
 bool CanButtonClick(){//需要重新实现
 	//如果当前有数据库已经打开
 	return true;

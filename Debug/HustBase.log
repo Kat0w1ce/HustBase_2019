@@ -1,2 +1,10 @@
-﻿  IX_Manager.cpp
+﻿  SYS_Manager.cpp
+c:\users\srz\desktop\hustbase_2019\SYS_Manager.h : warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+SYS_Manager.cpp(135): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(89): note: 参见“strcat”的声明
+SYS_Manager.cpp(136): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(89): note: 参见“strcat”的声明
+SYS_Manager.cpp(137): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.16299.0\ucrt\string.h(89): note: 参见“strcat”的声明
+c:\users\srz\desktop\hustbase_2019\sys_manager.cpp(130): warning C4715: “execute”: 不是所有的控件路径都返回值
   HustBase.vcxproj -> C:\Users\Srz\Desktop\HustBase_2019\Debug\HustBase.exe
