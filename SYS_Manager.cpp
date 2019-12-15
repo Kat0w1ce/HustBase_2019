@@ -7,7 +7,7 @@
 #include <fstream>
 #include "HustBaseDoc.h"
 
-void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
+void ExecuteAndMessage(char *sql, CEditArea* editArea)
 {//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
 	RC rc;
@@ -49,7 +49,7 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 		Destory_Result(&res);
 		return;
 	}
-	rc = execute(sql, pDoc);//非查询语句则执行其他SQL语句，成功返回SUCCESS
+	rc = execute(sql);//非查询语句则执行其他SQL语句，成功返回SUCCESS
 	int row_num = 0;
 	char**messages;
 	switch (rc) {
@@ -77,7 +77,7 @@ void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc* pDoc)
 	}
 }
 
-RC execute(char * sql,CHustBaseDoc *pDoc){
+RC execute(char * sql){
 	sqlstr *sql_str = NULL;//声明
 	RC rc, tempRc;
 	sql_str = get_sqlstr();//初始化
@@ -95,30 +95,25 @@ RC execute(char * sql,CHustBaseDoc *pDoc){
 		case 2:
 			//判断SQL语句为insert语句
 			tempRc = Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
-			pDoc->m_pListView->displayTabInfo(sql_str->sstr.ins.relName);
 			break;
 
 		case 3:
 			//判断SQL语句为update语句
 			tempRc = Update(sql_str->sstr.upd.relName, sql_str->sstr.upd.attrName, &sql_str->sstr.upd.value, sql_str->sstr.upd.nConditions, sql_str->sstr.upd.conditions);
-			pDoc->m_pListView->displayTabInfo(sql_str->sstr.ins.relName);
 			break;
 
 		case 4:
 			//判断SQL语句为delete语句
 			tempRc = Delete(sql_str->sstr.del.relName, sql_str->sstr.del.nConditions, sql_str->sstr.del.conditions);
-			pDoc->m_pListView->displayTabInfo(sql_str->sstr.ins.relName);
 			break;
 
 		case 5:
 			//判断SQL语句为createTable语句
 			tempRc = CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
-			pDoc->m_pTreeView->PopulateTree();
 			break;
 		case 6:
 			//判断SQL语句为dropTable语句
 			tempRc = DropTable(sql_str->sstr.drt.relName);
-			pDoc->m_pTreeView->PopulateTree();
 			break;
 
 		case 7:
