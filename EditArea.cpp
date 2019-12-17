@@ -110,6 +110,9 @@ void CEditArea::OnChange()
 }
 /////////////////////////////////////////////////////////////////////////////
 // CEditArea message handlers
+// 运行键执行sql语句
+// 负责对语法分析模块的结果进行处理，将处理后的结果传递给系统管理及查询分析模块；
+// 并对系统管理和查询处理的结果进行处理和显示，具体的处理工作在ExecuteAndMessage函数中完成
 void CEditArea::OnRunBtn() 
 {
 	// TODO: Add your command handler code here
@@ -119,7 +122,7 @@ void CEditArea::OnRunBtn()
 
 	sqlstr *sql_str = NULL;	//定义联合变量和FLAG的结构体对象
 	
-	RC rc;
+	//RC rc;
 
 	CMainFrame* main = (CMainFrame*)AfxGetApp()->m_pMainWnd;
 	CWnd* pPaneShow =(CWnd*)main->m_wmSplitter1.GetPane(0,0);
@@ -129,7 +132,7 @@ void CEditArea::OnRunBtn()
 
 	
 	pDoc->isEdit = false;
-	ExecuteAndMessage(str,this);//可以对此函数进行修改来设置页面展示的信息
+	ExecuteAndMessage(str, this, pDoc);//可以对此函数进行修改来设置页面展示的信息
 	
 }
 
@@ -200,7 +203,7 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 	CString t;//test
 
 	int i=0,j=0;
-	DWORD cchCurDir; 
+	DWORD cchCurDir; cchCurDir = 200;//init
 	LPTSTR lpszCurDir; 	
 	TCHAR tchBuffer[BUFFER]; 
 	lpszCurDir = tchBuffer; 
@@ -223,13 +226,17 @@ int CEditArea::iReadDictstruct(char tabname[][20],int *tabnum,char colname[][20]
 	while(GetNextRec(&FileScan1,&rec1)==SUCCESS)
 	{
 		strcpy(tabname[i],rec1.pData);
+
 		condition.bLhsIsAttr=1;
 		condition.bRhsIsAttr=0;
-	//	condition.LattrLength=strlen(tabname[i])+1;
+		condition.LattrLength=strlen(tabname[i])+1;
 		condition.LattrOffset=0;
 		condition.attrType=chars;
 		condition.compOp=EQual;
 		condition.Rvalue=tabname[i];
+
+
+
 		rc=OpenScan(&FileScan2,&colfilehandle,1,&condition);
 		if(rc!=SUCCESS)
 			AfxMessageBox("初始化列文件扫描失败");
@@ -354,3 +361,4 @@ void CEditArea::ShowMessage(int count,char* strs[]){
 	}
 	displayInfo();
 }
+ 

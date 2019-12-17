@@ -7,77 +7,117 @@
 #include <fstream>
 #include "HustBaseDoc.h"
 
-void ExecuteAndMessage(char *sql, CEditArea* editArea)
+void ExecuteAndMessage(char *sql, CEditArea* editArea, CHustBaseDoc *pDoc)
 {//根据执行的语句类型在界面上显示执行结果。此函数需修改
 	std::string s_sql = sql;
-	RC rc;
-	if (s_sql.find("select") == 0) {//是查询语句则执行以下，否则跳过
+	if (s_sql.find("select") == 0) {
 		SelResult res;
+		SelResult *temp = &res;//用于累加查询结果的行数的遍历指针
+
 		Init_Result(&res);
-		rc = Query(sql, &res);
-		if (rc != SUCCESS)return;
-		int col_num = res.col_num;//列
-		int row_num = 0;//行
-		SelResult *tmp = &res;
-		while (tmp) {//所有节点的记录数之和
-			row_num += tmp->row_num;
-			tmp = tmp->next_res;
+		Query(sql, &res);//执行Query查询
+
+		pDoc->selColNum = res.col_num;//这里是查询结果的列数
+		pDoc->selRowNum = 0;//这里是查询结果的行数，注意表头同样需要一行;
+							//在显示最终结果时单独对查询结果做了处理，这里是0还是1？执行时具体更改
+		temp = &res;
+		while (temp)
+		{
+			pDoc->selRowNum += res.row_num;
+			temp = temp->next_res;
 		}
-		char ** fields = new char *[20];//各字段名称
-		for (int i = 0; i<col_num; i++) {
+		//然后按照顺序，将查询结果以字符串的形式拷贝给pDoc->selResult[i][j]，表头信息同样需要拷贝过来。
+		pDoc->isEdit = 1;//构造好查询结果后将该标志位置为1，用于拖动外框时对查询结果进行重绘。
+
+						 //首行表头
+		char **fields = new char*[20];
+		for (int i = 0; i < pDoc->selColNum; i++)
+		{
 			fields[i] = new char[20];
-			memset(fields[i], '\0', 20);
+			memset(fields[i], '\0', 20);//置空
 			memcpy(fields[i], res.fields[i], 20);
 		}
-		tmp = &res;
-		char *** rows = new char**[row_num];//结果集
-		for (int i = 0; i<row_num; i++) {
-			rows[i] = new char*[col_num];//存放一条记录
-			for (int j = 0; j <col_num; j++)
+
+		//查询获得的结果
+		temp = &res;
+		char ***Result = new char**[pDoc->selRowNum];
+		for (int i = 0; i < pDoc->selRowNum; i++)
+		{
+			Result[i] = new char*[pDoc->selColNum];//存放一条记录
+
+			int x;
+			memcpy(&x, &(**temp->res[i]) + 18, sizeof(int));
+			memcpy(&x, &(**temp->res[i]) + 22, sizeof(int));
+
+			for (int j = 0; j < pDoc->selColNum; j++)
 			{
-				rows[i][j] = new char[20];//一条记录的一个字段
-				memset(rows[i][j], '\0', 20);
-				memcpy(rows[i][j], tmp->res[i][j], 20);
-			}
-			if (i == 99)tmp = tmp->next_res;//每个链表节点最多记录100条记录
+				Result[i][j] = new char[20];
+				memset(Result[i][j], '\0', 20);
+
+				memcpy(Result[i][j], (**(temp->res + i)) + temp->offset[j], temp->length[j]);
+				if (temp->type[j] == ints) {
+					int x;
+					memcpy(&x, Result[i][j], 4);
+					sprintf(Result[i][j], "%d", x);
+				}
+				else if (temp->type[j] == floats) {
+					float x;
+					memcpy(&x, Result[i][j], 4);
+					sprintf(Result[i][j], "%.3f", x);
+				}
+				//memcpy(Result[i][j], temp->res + temp->offset[j], sizeof(temp->attrType[j]));
+			}//要根据结构中具体字段的类型和偏移量，将具体字段从一条记录中拆分出来
+			if (i == 99)temp = temp->next_res;//一个结构体中最多100条记录
 		}
-		editArea->ShowSelResult(col_num, row_num, fields, rows);
-		for (int i = 0; i<20; i++) {
+
+		//显示
+		editArea->ShowSelResult(pDoc->selColNum, pDoc->selRowNum, fields, Result);
+
+		//释放内存空间
+		for (int i = 0; i<pDoc->selColNum; i++) {
 			delete[] fields[i];
 		}
 		delete[] fields;
+
+		for (int i = 0; i<pDoc->selRowNum; i++) {
+			for (int j = 0; j < pDoc->selColNum; j++)
+				delete[] Result[i][j];
+		}
+		delete[] Result;
 		Destory_Result(&res);
 		return;
 	}
-	rc = execute(sql);//非查询语句则执行其他SQL语句，成功返回SUCCESS
+
+	RC rc = execute(sql, pDoc);
 	int row_num = 0;
-	char**messages;
+	char **messages;
 	switch (rc) {
 	case SUCCESS:
 		row_num = 1;
 		messages = new char*[row_num];
-		messages[0] = "操作成功";
+		messages[0] = "Successful Execution!";
 		editArea->ShowMessage(row_num, messages);
 		delete[] messages;
 		break;
 	case SQL_SYNTAX:
 		row_num = 1;
 		messages = new char*[row_num];
-		messages[0] = "有语法错误";
+		messages[0] = "Syntax Error!";
 		editArea->ShowMessage(row_num, messages);
 		delete[] messages;
 		break;
 	default:
 		row_num = 1;
 		messages = new char*[row_num];
-		messages[0] = "功能未实现";
+		messages[0] = "Function Not Implemented!";
 		editArea->ShowMessage(row_num, messages);
 		delete[] messages;
 		break;
 	}
 }
 
-RC execute(char * sql){
+RC execute(char * sql, CHustBaseDoc *pDoc)
+{
 	sqlstr *sql_str = NULL;//声明
 	RC rc, tempRc;
 	sql_str = get_sqlstr();//初始化
@@ -95,8 +135,8 @@ RC execute(char * sql){
 		case 2:
 			//判断SQL语句为insert语句
 			tempRc = Insert(sql_str->sstr.ins.relName, sql_str->sstr.ins.nValues, sql_str->sstr.ins.values);
+			pDoc->m_pTreeView->PopulateTree();
 			break;
-
 		case 3:
 			//判断SQL语句为update语句
 			tempRc = Update(sql_str->sstr.upd.relName, sql_str->sstr.upd.attrName, &sql_str->sstr.upd.value, sql_str->sstr.upd.nConditions, sql_str->sstr.upd.conditions);
@@ -110,10 +150,12 @@ RC execute(char * sql){
 		case 5:
 			//判断SQL语句为createTable语句
 			tempRc = CreateTable(sql_str->sstr.cret.relName, sql_str->sstr.cret.attrCount, sql_str->sstr.cret.attributes);
+			pDoc->m_pTreeView->PopulateTree();
 			break;
 		case 6:
 			//判断SQL语句为dropTable语句
 			tempRc = DropTable(sql_str->sstr.drt.relName);
+			pDoc->m_pTreeView->PopulateTree();
 			break;
 
 		case 7:
@@ -591,7 +633,7 @@ RC Insert(char *relName, int nValues, Value * values)
 			columnRec->bValid = false;
 
 			int i = 0;
-			column = (sysColumns*)malloc(sizeof(sysColumns));
+			column = (sysColumns*)malloc(sizeof(sysColumns)*nValues);
 			tmp = column;
 			while (GetNextRec(tempFileScan, columnRec) == SUCCESS)
 			{
@@ -654,7 +696,7 @@ RC Insert(char *relName, int nValues, Value * values)
 		}
 		else
 		{
-			AfxMessageBox("属性个数不相同，插入失败!");
+			AfxMessageBox("Insert Fail!");
 			return tempRc;
 		}
 	}
