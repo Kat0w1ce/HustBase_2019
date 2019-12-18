@@ -702,7 +702,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	}
 	else
 	{
-		AfxMessageBox("Target Tables Is Not Exsit!");
+		AfxMessageBox("Target Tables Is Not Exist!");
 		return tempRc;
 	}
 	return SUCCESS;
@@ -868,7 +868,7 @@ RC Delete(char *relName, int nConditions, Condition *conditions)
 	}
 	else
 	{
-		AfxMessageBox("That Table Do Not Exsit!");
+		AfxMessageBox("That Table Do Not Exist!");
 		RM_CloseFile(tableHandle);
 		free(tableHandle);
 		CloseScan(tempFileScan);
@@ -1042,7 +1042,7 @@ RC Update(char *relName, char *attrName, Value *value, int nConditions, Conditio
 		}
 		else
 		{
-			AfxMessageBox("That Table Do Not Exsit This Property!");
+			AfxMessageBox("That Table Do Not Exist This Property!");
 			return tempRc;
 		}
 		RM_CloseFile(tableHandle);
@@ -1059,7 +1059,7 @@ RC Update(char *relName, char *attrName, Value *value, int nConditions, Conditio
 	}
 	else
 	{
-		AfxMessageBox("That Table Do Not Exsit!");
+		AfxMessageBox("That Table Do Not Exist!");
 		RM_CloseFile(tableHandle);
 		CloseScan(tempFileScan);
 		free(tableHandle);

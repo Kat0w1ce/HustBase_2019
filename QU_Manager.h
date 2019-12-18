@@ -18,7 +18,12 @@ typedef struct SelResult{
 void Init_Result(SelResult * res);
 void Destory_Result(SelResult * res);
 
+
+RC tableExist(int nRelations, char **relations);
+
 RC Query(char * sql,SelResult * res);
 RC Select(int nSelAttrs,RelAttr **selAttrs,int nRelations,char **relations,int nConditions,Condition *conditions,SelResult * res);
+RC singleNoCondition(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res);
+RC singleWithCondition(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res);
 
 #endif
