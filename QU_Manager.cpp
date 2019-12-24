@@ -36,6 +36,34 @@ RC Query(char * sql, SelResult * res) {
 	return SUCCESS;
 }
 
+RC Select(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res)
+{
+	RC tempRc;
+	tempRc = tableExist(nRelations, relations);
+	if (tempRc != SUCCESS)
+	{
+		AfxMessageBox("Table Is Not Exist!");
+		return tempRc;
+	}
+	if (nRelations == 1)
+	{//single table
+		if (nConditions == 0)
+		{//no condition
+			singleNoCondition(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);
+		}
+		else
+		{
+			singleWithCondition(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);
+		}
+	}
+	else
+	{//multi table
+		multiSelect(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);
+	}
+
+	return SUCCESS;
+}
+
 RC tableExist(int nRelations, char **relations)
 {
 	RC tempRc;
@@ -83,35 +111,6 @@ RC tableExist(int nRelations, char **relations)
 
 	return tempRc;
 }
-
-RC Select(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res)
-{
-	RC tempRc;
-	tempRc = tableExist(nRelations, relations);
-	if (tempRc != SUCCESS)
-	{
-		AfxMessageBox("Table Is Not Exist!");
-		return tempRc;
-	}
-	if (nRelations == 1)
-	{//single table
-		if (nConditions == 0)
-		{//no condition
-			singleNoCondition(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);
-		}
-		else
-		{
-			singleWithCondition(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res);
-		}
-	}
-	else
-	{//multi table
-
-	}
-
-	return SUCCESS;
-}
-
 
 RC singleNoCondition(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res)
 {
@@ -454,5 +453,308 @@ RC singleWithCondition(int nSelAttrs, RelAttr **selAttrs, int nRelations, char *
 		free(tempRec);
 	}
 	res = resHead;
+	return SUCCESS;
+}
+
+RC multiSelect(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res)
+{
+	RC tempRc;
+	SelResult *resHead = res;
+
+	if (false)
+	{//have index
+
+	}
+	else
+	{
+		RM_FileHandle *tempFileHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+		tempFileHandle->bOpen = false;
+		RM_FileScan *tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+		tempFileScan->bOpen = false;
+		RM_FileHandle **allFileHandle = (RM_FileHandle**)malloc(sizeof(RM_FileHandle)*nRelations);
+		for (int i = 0; i < nRelations; i++)
+		{
+			allFileHandle[i] = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+			allFileHandle[i]->bOpen = false;
+			tempRc = RM_OpenFile(relations[nRelations - i - 1], allFileHandle[i]);
+			if (tempRc != SUCCESS)return tempRc;
+		}
+		
+		int *offset = (int *)malloc(sizeof(int)*(nRelations + 1));
+
+		offset[0] = 0;
+		for (int i = 0; i <= nRelations; i++)
+		{
+			offset[i] = offset[i - 1] + allFileHandle[i - 1]->rFileSubHeader->recordSize;
+		}
+		RM_Record *tempRec = (RM_Record*)malloc(sizeof(RM_Record));
+		tempRec->bValid = false;
+		Con tempCon[2];
+		tempCon[0].attrType = chars;
+		tempCon[0].bLhsIsAttr = 1;
+		tempCon[0].LattrOffset = 0;
+		tempCon[0].LattrLength = 21;
+		tempCon[0].bRhsIsAttr = 0;
+		tempCon[0].compOp = EQual;
+
+		if (nSelAttrs == 1 && !strcmp((*selAttrs)->attrName, "*"))
+		{
+
+		}
+		else
+		{  //not select all
+			resHead->col_num = nSelAttrs;
+			resHead->row_num = 0;
+			tempCon[1].attrType = chars;
+			tempCon[1].bLhsIsAttr = 1;
+			tempCon[1].LattrLength = 21;
+			tempCon[1].LattrOffset = 21;
+			tempCon[1].bRhsIsAttr = 0;
+			tempCon[1].compOp = EQual;
+
+			tempRc = RM_OpenFile("SYSCOLUMNS", tempFileHandle);
+			if (tempRc != SUCCESS)return tempRc;
+
+			for (int i = 0; i < resHead->col_num; i++)
+			{
+				tempCon[0].Rvalue = selAttrs[resHead->col_num - i - 1]->relName;
+				tempCon[1].Rvalue = selAttrs[resHead->col_num - i - 1]->attrName;
+				
+				OpenScan(tempFileScan, tempFileHandle, 2, tempCon);
+				tempRc = GetNextRec(tempFileScan, tempRec);
+				if (tempRc != SUCCESS)return tempRc;
+				char *column = tempRec->pData;
+				memcpy(&resHead->fields[i], column + 21, 21);
+				memcpy(&resHead->type[i], column + 42, sizeof(int));
+				memcpy(&resHead->length[i], column + 46, sizeof(int));
+				memcpy(&resHead->offset[i], column + 50, sizeof(int));
+				for (int j = 0; j < nRelations; j++)
+				{
+					if (!strcmp(relations[nRelations - j - 1], (char*)tempCon[0].Rvalue))
+					{
+						resHead->offset[i] += offset[j];
+						break;
+					}
+				}
+				CloseScan(tempFileScan);
+			}//end for
+			RM_CloseFile(tempFileHandle);
+		}//end else
+
+		//close all file
+		for (int i = 0; i < nRelations; i++)
+		{
+			tempRc = RM_CloseFile(allFileHandle[i]);
+			if (tempRc != SUCCESS)return tempRc;
+			free(allFileHandle[i]);
+		}
+		free(allFileHandle);
+		free(tempFileHandle);
+		free(tempFileScan);
+		free(tempRec);
+
+		helpSelect(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions,
+			res, nRelations - 1, offset, NULL);
+		free(offset);
+	}
+	res = resHead;
+	return SUCCESS;
+}
+
+RC helpSelect(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relations, int nConditions, Condition *conditions, SelResult * res, int helpFlag, int *offsets, char *curResult)
+{
+	if (helpFlag < 0)
+	{ //out
+		SelResult *curRes = res;
+		while (curRes->next_res!=NULL)
+		{
+			curRes = curRes->next_res;
+		}
+
+		if (curRes->row_num >= 100)
+		{
+			curRes->next_res = (SelResult*)malloc(sizeof(SelResult));
+			curRes = curRes->next_res;
+			curRes->next_res = NULL;
+			curRes->row_num = 0;
+		}
+
+		curRes->res[curRes->row_num] = (char**)malloc(sizeof(char *));
+		*(curRes->res[curRes->row_num]) = (char *)malloc(sizeof(char)*offsets[nRelations]);
+		memcpy(*(curRes->res[curRes->row_num]), curResult, offsets[nRelations]);
+		curRes->row_num++;
+		return SUCCESS;
+	}
+	RC tempRc;
+	RM_FileHandle *tempFileHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+	RM_FileScan *tempFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+	RM_Record *tempRec = (RM_Record *)malloc(sizeof(RM_Record));
+	tempFileHandle->bOpen = false;
+	tempFileScan->bOpen = false;
+	tempRec->bValid = false;
+
+	int nSelectCons = 0;
+	Con tempCon[2];
+	Con **selectCon = (Con**)malloc(sizeof(Con*)*nConditions);
+	RelAttr anotherTable;
+	int nAnotherTable;
+
+	tempRc = RM_OpenFile("SYSCOLUMNS", tempFileHandle);
+	if (tempRc != SUCCESS) return tempRc;
+
+	tempCon[0].attrType = chars;
+	tempCon[0].bLhsIsAttr = 1;
+	tempCon[0].LattrOffset = 0;
+	tempCon[0].LattrLength = 21;
+	tempCon[0].bRhsIsAttr = 0;
+	tempCon[0].Rvalue = relations[helpFlag];
+	tempCon[0].compOp = EQual;
+
+	tempCon[1].attrType = chars;
+	tempCon[1].bLhsIsAttr = 1;
+	tempCon[1].LattrOffset = 21;
+	tempCon[1].LattrLength = 21;
+	tempCon[1].bRhsIsAttr = 0;
+	tempCon[1].compOp = EQual;
+
+	for (int i = 0; i < nConditions; i++)
+	{
+		if (!((conditions[i].bLhsIsAttr == 1 && !strcmp(conditions[i].lhsAttr.relName, relations[helpFlag]))
+			|| (conditions[i].bRhsIsAttr == 1 && !strcmp(conditions[i].rhsAttr.relName, relations[helpFlag]))))
+		{
+			continue;
+		}
+
+		selectCon[nSelectCons] = (Con *)malloc(sizeof(Con));
+
+		if (conditions[i].bLhsIsAttr == 0 && conditions[i].bRhsIsAttr == 1)
+		{
+			tempCon[1].Rvalue = conditions[i].rhsAttr.attrName;
+		}
+		else if (conditions[i].bLhsIsAttr == 1 && conditions[i].bRhsIsAttr == 0)
+		{
+			tempCon[1].Rvalue = conditions[i].lhsAttr.attrName;
+		}
+		else if (conditions[i].bLhsIsAttr == 1 && conditions[i].bLhsIsAttr == 1)
+		{
+			if (!strcmp(conditions[i].lhsAttr.relName, relations[helpFlag]))
+			{
+				tempCon[1].Rvalue = conditions[i].lhsAttr.attrName;
+				anotherTable.relName = conditions[i].rhsAttr.relName;
+				anotherTable.attrName = conditions[i].rhsAttr.attrName;
+			}
+			else
+			{
+				tempCon[1].Rvalue = conditions[i].rhsAttr.attrName;
+				anotherTable.relName = conditions[i].lhsAttr.relName;
+				anotherTable.attrName = conditions[i].lhsAttr.attrName;
+			}
+
+			int j = 0;
+			for (; j < nRelations; j++)
+			{
+				if (!strcmp(relations[j], anotherTable.relName))
+				{
+					break;
+				}
+			}
+			if (j >= nRelations)
+			{
+				return RM_EOF;
+			}
+
+			if (j < helpFlag)
+			{
+				continue;
+			}
+			nAnotherTable = j;
+		}//end else if
+
+		OpenScan(tempFileScan, tempFileHandle, 2, tempCon);
+		tempRc = GetNextRec(tempFileScan, tempRec);
+		if (tempRc != SUCCESS)return tempRc;
+
+		if (conditions[i].bLhsIsAttr == 0 && conditions[i].bRhsIsAttr == 1)
+		{
+			selectCon[nSelectCons]->bLhsIsAttr = 0;
+			selectCon[nSelectCons]->bRhsIsAttr = 1;
+			selectCon[nSelectCons]->compOp = conditions[i].op;
+
+			memcpy(&selectCon[nSelectCons]->RattrLength, tempRec->pData + 46, sizeof(int));
+			memcpy(&selectCon[nSelectCons]->RattrOffset, tempRec->pData + 50, sizeof(int));
+			selectCon[nSelectCons]->attrType = conditions[i].lhsValue.type;
+			selectCon[nSelectCons]->Lvalue = conditions[i].lhsValue.data;
+		}
+		else if (conditions[i].bLhsIsAttr == 1 && conditions[i].bRhsIsAttr == 0)
+		{
+			selectCon[nSelectCons]->bLhsIsAttr = 1;
+			selectCon[nSelectCons]->bRhsIsAttr = 0;
+			selectCon[nSelectCons]->compOp = conditions[i].op;
+
+			memcpy(&selectCon[nSelectCons]->LattrLength, tempRec->pData + 46, sizeof(int));
+			memcpy(&selectCon[nSelectCons]->LattrOffset, tempRec->pData + 50, sizeof(int));
+			selectCon[nSelectCons]->attrType = conditions[i].rhsValue.type;
+			selectCon[nSelectCons]->Lvalue = conditions[i].rhsValue.data;
+		}
+		else if (conditions[i].bLhsIsAttr == 1 && conditions[i].bRhsIsAttr == 1)
+		{
+			selectCon[nSelectCons]->bLhsIsAttr = 1;
+			selectCon[nSelectCons]->bRhsIsAttr = 0;
+			selectCon[nSelectCons]->compOp = conditions[i].op;
+			memcpy(&selectCon[nSelectCons]->attrType, tempRec->pData + 42, 4);
+			memcpy(&selectCon[nSelectCons]->LattrLength, tempRec->pData + 46, sizeof(int));
+			memcpy(&selectCon[nSelectCons]->LattrOffset, tempRec->pData + 50, sizeof(int));
+
+			RM_FileHandle *columnFileHandle = (RM_FileHandle*)malloc(sizeof(RM_FileHandle));
+			columnFileHandle->bOpen = false;
+			tempRc = RM_OpenFile("SYSCOLUMNS", columnFileHandle);
+			if (tempRc != SUCCESS)return tempRc;
+
+			RM_FileScan *columnFileScan = (RM_FileScan*)malloc(sizeof(RM_FileScan));
+
+			tempCon[0].Rvalue = anotherTable.relName;
+			tempCon[1].Rvalue = anotherTable.attrName;
+			OpenScan(columnFileScan, columnFileHandle, 2, tempCon);
+			tempRc = GetNextRec(columnFileScan, tempRec);
+			if (tempRc != SUCCESS)return tempRc;
+
+			int offset;
+			memcpy(&offset, tempRec->pData + 50, sizeof(int));
+			selectCon[nSelectCons]->Rvalue = curResult + offsets[nRelations - nAnotherTable - 1] + offset;
+
+			CloseScan(columnFileScan);
+			free(columnFileScan);
+			RM_CloseFile(columnFileHandle);
+			free(columnFileHandle);
+		}//end else if
+		nSelectCons++;
+		CloseScan(tempFileScan);
+	}//end condition for
+	RM_CloseFile(tempFileHandle);
+
+	tempRc = RM_OpenFile(relations[helpFlag], tempFileHandle);
+	if (tempRc != SUCCESS)return tempRc;
+
+	OpenScan(tempFileScan, tempFileHandle, nSelectCons, *selectCon);
+	tempRc = GetNextRec(tempFileScan, tempRec);
+	while (tempRc == SUCCESS)
+	{
+		char *result = (char *)malloc(sizeof(char)*offsets[nRelations - helpFlag - 1 + 1]);
+		memcpy(result, curResult, offsets[nRelations - helpFlag - 1]);
+		memcpy(result + offsets[nRelations - helpFlag - 1], tempRec->pData, tempFileHandle->rFileSubHeader->recordSize);
+		helpSelect(nSelAttrs, selAttrs, nRelations, relations, nConditions, conditions, res, helpFlag - 1, offsets, result);
+		free(result);
+		tempRc = GetNextRec(tempFileScan, tempRec);
+	}
+	CloseScan(tempFileScan);
+	RM_CloseFile(tempFileHandle);
+	free(tempFileHandle);
+	free(tempFileScan);
+	free(tempRec);
+	for (int i = 0; i < nSelectCons; i++)
+	{
+		free(selectCon[i]);
+	}
+	selectCon = NULL;
 	return SUCCESS;
 }

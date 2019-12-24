@@ -381,7 +381,6 @@ RC DropTable(char *relName)
 	return SUCCESS;
 }
 
-
 //该函数在关系relName的属性attrName上创建名为indexName的索引。
 //函数首先检查在标记属性上是否已经存在一个索引，如果存在，则返回一个非零的错误码。
 //否则，创建该索引。创建索引的工作包括：
@@ -561,6 +560,7 @@ RC DropIndex(char *indexName)
 	return SUCCESS;
 }
 
+
 //该函数用来在relName表中插入具有指定属性值的新元组，nValues为属性值个数，values为对应的属性值数组。
 //函数根据给定的属性值构建元组，调用记录管理模块的函数插入该元组，
 //然后在该表的每个索引中为该元组创建合适的索引项。
@@ -600,7 +600,7 @@ RC Insert(char *relName, int nValues, Value * values)
 	tempRc = OpenScan(tempFileScan, tableHandle, 1, tempCon);
 	if (tempRc != SUCCESS)
 	{
-		AfxMessageBox("Scan System TablesFile Fail!");
+		AfxMessageBox("Scan System Tables File Fail!");
 		return tempRc;
 	}
 	tempRc = GetNextRec(tempFileScan, tableRec);
