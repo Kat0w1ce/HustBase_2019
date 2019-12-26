@@ -483,7 +483,7 @@ RC multiSelect(int nSelAttrs, RelAttr **selAttrs, int nRelations, char **relatio
 		int *offset = (int *)malloc(sizeof(int)*(nRelations + 1));
 
 		offset[0] = 0;
-		for (int i = 0; i <= nRelations; i++)
+		for (int i = 1; i <= nRelations; i++)
 		{
 			offset[i] = offset[i - 1] + allFileHandle[i - 1]->rFileSubHeader->recordSize;
 		}
